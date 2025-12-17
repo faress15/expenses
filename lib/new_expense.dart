@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:untitled1/model/expense.dart';
+import 'package:untitled1/servises/db_helper.dart';
 
 class NewExpense extends StatefulWidget {
   const NewExpense({super.key, required this.addExpense});
@@ -30,7 +31,7 @@ class _NewExpenseState extends State<NewExpense> {
     });
   }
 
-  void _submitForm() {
+  void _submitForm() async {
     final enteredAmount = double.tryParse(_amountController.text);
     final amountIsInvalid = enteredAmount == null || enteredAmount <= 0;
     if (_titleController.text.trim().isEmpty ||
@@ -56,14 +57,17 @@ class _NewExpenseState extends State<NewExpense> {
       return;
     }
 
-    widget.addExpense(
-      Expense(
-        title: _titleController.text,
-        amount: enteredAmount,
-        date: _selectedDate!,
-        category: _selectedCategory,
-      ),
+    final expense = Expense(
+      id: uuid.v4(),
+      title: _titleController.text,
+      amount: enteredAmount,
+      date: _selectedDate!,
+      category: _selectedCategory,
     );
+
+    await DbHelper.addExpense(expense);
+    widget.addExpense(expense);
+    if (!mounted) return;
     Navigator.pop(context);
   }
 
@@ -106,7 +110,7 @@ class _NewExpenseState extends State<NewExpense> {
                 children: [
                   Text(
                     _selectedDate == null
-                        ? 'No Date selected'
+                        ? 'Pick a Date'
                         : formatter.format(_selectedDate!),
                   ),
                   IconButton(
@@ -149,8 +153,45 @@ class _NewExpenseState extends State<NewExpense> {
                 child: Text('Cancel'),
               ),
               ElevatedButton(
-                onPressed: () {
-                  _submitForm();
+                onPressed: () async {
+                  final enteredAmount = double.tryParse(_amountController.text);
+                  final amountIsInvalid =
+                      enteredAmount == null || enteredAmount <= 0;
+                  if (_titleController.text.trim().isEmpty ||
+                      amountIsInvalid ||
+                      _selectedDate == null) {
+                    showDialog(
+                      context: context,
+                      builder: (ctx) => AlertDialog(
+                        title: Text('Invalid input'),
+                        content: Text(
+                          'Please make sure a valid title, amount, date and category was entered.',
+                        ),
+                        actions: [
+                          TextButton(
+                            onPressed: () {
+                              Navigator.pop(ctx);
+                            },
+                            child: Text('Okay'),
+                          ),
+                        ],
+                      ),
+                    );
+                    return;
+                  }
+
+                  final expense = Expense(
+                    id: uuid.v4(),
+                    title: _titleController.text,
+                    amount: enteredAmount,
+                    date: _selectedDate!,
+                    category: _selectedCategory,
+                  );
+
+                  await DbHelper.addExpense(expense);
+                  widget.addExpense(expense);
+                  if (!context.mounted) return;
+                  Navigator.pop(context);
                 },
                 child: Text('Save Expense'),
               ),
